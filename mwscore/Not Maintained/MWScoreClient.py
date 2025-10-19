@@ -6,8 +6,10 @@ import MWScore
 import time
 import sys
 
+
 def fn(mechsAndScores):
     print("Received update: " + repr(mechsAndScores))
+
 
 def main(server):
     print("Connecting to host: " + server)
@@ -16,9 +18,9 @@ def main(server):
     time.sleep(10)
     conn.ThreadKill = True
 
+
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         main(sys.argv[1])
     else:
-        main('192.168.1.102')
-
+        main("192.168.1.102")
