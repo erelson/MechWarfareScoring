@@ -5,6 +5,8 @@ import wx
 
 import pickle
 import traceback
+import argparse
+import sys
 
 """
 
@@ -26,11 +28,11 @@ class MWScoreFrame(wx.Frame):
     ID_TRANSPONDERHPUPDATE = wx.NewIdRef()
 
     # Class constructor
-    def __init__(self):
+    def __init__(self, initial_mechs=None):
         wx.Frame.__init__(
             self, None, wx.ID_ANY, style=wx.DEFAULT_FRAME_STYLE, name="MWScore Server"
         )
-        self.ScoreServer = MWScore.ScoreServer()
+        self.ScoreServer = MWScore.ScoreServer(initial_mechs=initial_mechs)
 
         # Menu Bar
         self.MenuBar = wx.MenuBar()
@@ -780,6 +782,44 @@ class MatchTimerText(wx.StaticText):
 
 
 if __name__ == "__main__":
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(
+        description="MechWarfare Score Server GUI",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s --mechs "Sarge" "Odin"
+  %(prog)s --mechs 9 10
+  %(prog)s --mechs "sarge" 10 "nomad"
+        """
+    )
+    parser.add_argument(
+        "--mechs",
+        nargs="+",
+        metavar="MECH",
+        help="List of mechs to initialize (by name or index). Minimum 2 mechs required."
+    )
+
+    args = parser.parse_args()
+
+    # Validate mechs argument
+    initial_mechs = None
+    if args.mechs is not None:
+        if len(args.mechs) < 2:
+            parser.error("--mechs requires at least 2 mechs")
+        initial_mechs = args.mechs
+
+    # Create the application
     app = wx.App(0)
-    frame = MWScoreFrame()
-    app.MainLoop()
+
+    # Try to create the frame with the specified mechs
+    try:
+        frame = MWScoreFrame(initial_mechs=initial_mechs)
+        app.MainLoop()
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Unexpected error: {e}", file=sys.stderr)
+        traceback.print_exc()
+        sys.exit(1)

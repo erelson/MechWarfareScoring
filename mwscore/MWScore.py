@@ -25,20 +25,79 @@ MATCH_FFA = 2
 
 class ScoreServer:
 
-    def __init__(self):
+    def __init__(self, initial_mechs=None):
 
         self.Log("Mech Warfare MWScore Scoring System v2.0 \n")
         self.Log("R-TEAM Version \r\n")
 
         self.MechList = MechList().CreateFromConfig("mechs.conf")
+
+        # Resolve initial mechs if provided
+        resolved_mechs = []
+        if initial_mechs is not None:
+            resolved_mechs = self._resolve_mechs(initial_mechs)
+        else:
+            # Default behavior: use first two mechs
+            resolved_mechs = [self.MechList.List[0], self.MechList.List[1]]
+
         defaultPort = "COM8"
         if os.name == "posix":
             defaultPort = "/dev/ttyUSB0"
         self.TransponderListener = TransponderListener(self, defaultPort, 38400)
         self.SocketServer = SocketServer(self, "", 2525)
-        self.Match = Match(self, mechs=[self.MechList.List[0], self.MechList.List[1]])
+        self.Match = Match(self, mechs=resolved_mechs)
 
         self.StartAll()
+
+    def _resolve_mechs(self, mech_identifiers):
+        """
+        Resolve a list of mech identifiers (names or indices) to Mech objects.
+
+        Args:
+            mech_identifiers: List of strings that are either mech names or integer indices
+
+        Returns:
+            List of Mech objects
+
+        Raises:
+            ValueError: If a mech identifier cannot be resolved
+        """
+        resolved = []
+
+        for identifier in mech_identifiers:
+            # Try to parse as integer index first
+            try:
+                index = int(identifier)
+                if 0 <= index < len(self.MechList.List):
+                    resolved.append(self.MechList.List[index])
+                else:
+                    raise ValueError(
+                        f"Mech index {index} out of range. Valid indices: 0-{len(self.MechList.List)-1}"
+                    )
+            except ValueError as e:
+                # If it's not a valid integer or out of range, treat as name
+                if "out of range" in str(e):
+                    raise e
+
+                # Search by name (case-insensitive)
+                mech = None
+                identifier_lower = identifier.lower()
+                for m in self.MechList.List:
+                    if m.Name.lower() == identifier_lower:
+                        mech = m
+                        break
+
+                if mech is None:
+                    # Provide helpful error message with available mechs
+                    available_mechs = [f"{m.ID}:{m.Name}" for m in self.MechList.List]
+                    raise ValueError(
+                        f"Mech '{identifier}' not found. Available mechs:\n" +
+                        "\n".join(available_mechs)
+                    )
+
+                resolved.append(mech)
+
+        return resolved
 
     def Log(self, string):
         print(time.strftime("%I.%M.%S") + ": " + string)
