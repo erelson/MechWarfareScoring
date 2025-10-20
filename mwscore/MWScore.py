@@ -108,9 +108,11 @@ class ScoreServer:
         self.Match.StartThread()
 
     def KillAll(self):
+        self.Log("Shutting down all modules...")
         self.TransponderListener.KillThread()
         self.SocketServer.KillThread()
         self.Match.KillThread()
+        self.Log("All modules shut down.")
 
 
 """
@@ -139,6 +141,11 @@ class ScoreModule:
 
     def KillThread(self):
         self.ThreadKill = True
+        # Wait for thread to finish (with timeout)
+        if self.Thread.is_alive():
+            self.Thread.join(timeout=3.0)
+            if self.Thread.is_alive():
+                print(f"Warning: {self.__class__.__name__} thread did not terminate within timeout")
 
 
 class SocketServer(ScoreModule):
@@ -156,6 +163,27 @@ class SocketServer(ScoreModule):
         self.Clients = []
 
         self.Setup()
+
+    def KillThread(self):
+        # Call parent's KillThread first (sets flag and waits)
+        ScoreModule.KillThread(self)
+
+        # Close all client connections
+        for client in self.Clients:
+            try:
+                client.close()
+            except:
+                pass
+        self.Clients = []
+
+        # Close the server socket
+        if self.Socket:
+            try:
+                self.Socket.close()
+                self.ScoreServer.Log("SocketServer socket closed.")
+            except:
+                pass
+            self.Socket = None
 
     # Attempt to setup the socket
     def Setup(self):
@@ -309,6 +337,19 @@ class TransponderListener(ScoreModule):
         self.Xbee = None
 
         self.Setup(self.Port, self.Baudrate)
+
+    def KillThread(self):
+        # Call parent's KillThread first (sets flag and waits)
+        ScoreModule.KillThread(self)
+
+        # Close the serial port
+        if self.Xbee:
+            try:
+                self.Xbee.close()
+                self.ScoreServer.Log("TransponderListener serial port closed.")
+            except:
+                pass
+            self.Xbee = None
 
     # Attempt to setup Xbee radio.
     def Setup(self, port, baud):
@@ -646,6 +687,7 @@ class Mech:
 
         self.HP = self.MaxHP
         self.InMatch = False
+        self.LastSeen = None  # Timestamp of last transponder message
 
     def Reset(self):
         self.Team = 0
@@ -713,6 +755,7 @@ class Mech:
     # Adjusts a mech's HP.
     def AdjustHP(self, hp):
         self.HP = hp
+        self.LastSeen = time.time()  # Update last seen timestamp
         return (
             "HP adjusted on ID# "
             + str(self.ID)
@@ -721,6 +764,24 @@ class Mech:
             + " HP="
             + str(self.HP)
         )
+
+    # Check if mech is offline (no message received in last 20 seconds)
+    def IsOffline(self, timeout=20):
+        """
+        Check if the mech appears to be offline based on last transponder message.
+
+        Args:
+            timeout: Number of seconds of silence before considering offline (default 20)
+
+        Returns:
+            True if offline (no messages received within timeout), False otherwise
+        """
+        if self.LastSeen is None:
+            # Never received a message - consider offline
+            return True
+
+        elapsed = time.time() - self.LastSeen
+        return elapsed > timeout
 
     def __repr__(self):
         return repr((self.ID, self.Name, self.HP))

@@ -87,6 +87,9 @@ class MWScoreFrame(wx.Frame):
         self.timer.Start(20)
         self.Bind(wx.EVT_TIMER, self.OnTimer)
 
+        # Bind window close event to ensure proper cleanup
+        self.Bind(wx.EVT_CLOSE, self.OnClose)
+
         self.Show(True)
         self.SetTitle("Mech Warfare Match Score")
 
@@ -304,9 +307,20 @@ class MWScoreFrame(wx.Frame):
                 "Exception in Transmit HP:\r\n" + str(x), "Error", wx.OK | wx.ICON_ERROR
             )
 
-    # Kills all threads and closes the program
-    def Quit(self, event):
+    # Handle window close event (X button)
+    def OnClose(self, event):
+        # Stop the timer first
+        self.timer.Stop()
+
+        # Kill all threads and clean up resources
         self.ScoreServer.KillAll()
+
+        # Destroy the window
+        self.Destroy()
+
+    # Kills all threads and closes the program (File > Quit menu)
+    def Quit(self, event):
+        # Close will trigger OnClose event
         self.Close()
 
 
@@ -710,14 +724,30 @@ class MechHPText(wx.StaticText):
         self.Bind(wx.EVT_LEFT_DOWN, self.LeftClick)
         self.Bind(wx.EVT_RIGHT_DOWN, self.RightClick)
         self.oldHP = 99
+        self.oldOfflineState = False
         self.SetLabel("--")
 
     def Refresh(self):
+        # Update HP label
         if self.Mech.HP != MechHPText.oldHP:
             self.SetLabel(str(self.Mech.HP))
         else:
             pass
         self.oldHP = self.Mech.HP
+
+        # Update offline indicator (red background)
+        is_offline = self.Mech.IsOffline()
+        if is_offline != self.oldOfflineState:
+            if is_offline:
+                # Show red background when offline
+                self.SetBackgroundColour(wx.Colour(255, 0, 0))
+                self.SetForegroundColour(wx.Colour(255, 255, 255))  # White text
+            else:
+                # Clear background when online
+                self.SetBackgroundColour(wx.NullColour)
+                self.SetForegroundColour(wx.NullColour)
+            self.Refresh()  # Force visual refresh
+            self.oldOfflineState = is_offline
 
     def LeftClick(self, event):
         if not self.ScoreServer.Match.MatchOver:
