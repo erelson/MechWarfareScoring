@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import MWScore
 import wx
@@ -746,8 +746,8 @@ class MechHPText(wx.StaticText):
                 # Clear background when online
                 self.SetBackgroundColour(wx.NullColour)
                 self.SetForegroundColour(wx.NullColour)
-            self.Refresh()  # Force visual refresh
             self.oldOfflineState = is_offline
+            self.Refresh()  # Force visual refresh
 
     def LeftClick(self, event):
         if not self.ScoreServer.Match.MatchOver:
