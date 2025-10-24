@@ -29,9 +29,11 @@ class MWScoreFrame(wx.Frame):
 
     # Class constructor
     def __init__(self, initial_mechs=None):
+
         wx.Frame.__init__(
             self, None, wx.ID_ANY, style=wx.DEFAULT_FRAME_STYLE, name="MWScore Server"
         )
+
         self.ScoreServer = MWScore.ScoreServer(initial_mechs=initial_mechs)
 
         # Menu Bar
@@ -91,7 +93,23 @@ class MWScoreFrame(wx.Frame):
         self.Bind(wx.EVT_CLOSE, self.OnClose)
 
         self.Show(True)
+
         self.SetTitle("Mech Warfare Match Score")
+
+        # Get the screen dimensions
+        display = wx.Display(0)  # Assuming the primary display (index 0)
+        geometry = display.GetGeometry()
+        screen_width = geometry.GetWidth()
+        screen_height = geometry.GetHeight()
+
+        # Calculate half screen width
+        half_screen_width = screen_width // 2
+
+        # Set the window size to half the screen width and full screen height
+        self.SetSize(half_screen_width, screen_height)
+
+        # Position the window to the right half of the screen
+        self.SetPosition((half_screen_width, 0))
 
     # Updates the frames panel and Broadcasts match data to clients
     def OnTimer(self, event):
